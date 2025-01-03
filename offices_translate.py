@@ -4,11 +4,12 @@ import os
 import logging.config
 import re
 
-from logging_config import LOGGING_CONFIG
 from imap_tools import AND, MailBox
 
 from config import mail_and_name, name_and_mail, year
+from dotenv import load_dotenv
 
+load_dotenv()
 
 IMAP: str = os.environ['SERVER_IMAP']
 MAIL_USERNAME: str = os.environ['USERNAME_MAIL']
@@ -30,7 +31,7 @@ class MoneyForMonth:
         return [datetime.date(year, month, day) for day in range(start_day, day_finish)]
 
 
-    def request_messages_from_email(self) -> list:
+    def request_email(self) -> list:
         with MailBox(IMAP).login(MAIL_USERNAME, MAIL_PASSWORD) as mailbox:
             mailbox.folder.set('Отправленные')
             for day in self.create_list_of_data():
@@ -67,37 +68,23 @@ class MoneyForMonth:
         )
 
     def request_summ(self) -> str:
-        list_message = self.request_messages_from_email()
-        messages = self.create_list_summ(list_message)
-        output = self.create_output(messages)
-        return self.format_output_translate(output)
+        list_message = self.request_email()
+        if list_message:
+            messages = self.create_list_summ(list_message)
+            output = self.create_output(messages)
+            return self.format_output_translate(output)
+        else:
+            return "За указанный период расчетов не было"
 
 
 class MoneyForPeriod(MoneyForMonth):
 
-    def request_mail(self) -> list:
-        mail: str = name_and_mail.get(self.data[2])
-        # creating to connect to server
+    def request_email(self) -> list:
+        mail: tuple = name_and_mail.get(self.data[2])
         with MailBox(IMAP).login(MAIL_USERNAME, MAIL_PASSWORD) as mailbox:
-            # select the folder
             mailbox.folder.set('Отправленные')
             for _ in mail:
                 for day in self.create_list_of_data():
                     for msg in mailbox.fetch(AND(date=day, text="гривен", to=_), charset='utf-8'):
                         self.message_list.append([msg.uid, str(msg.date), msg.to, msg.text])
         return self.message_list
-
-    def create_list_of_data(self) -> list:
-        list_of_days = []
-        str_date:str = '.'.join(self.data[:2])
-        today = datetime.datetime.today()
-        date_:datetime = datetime.datetime.strptime(".".join([str(year),  str_date]), "%Y.%m.%date_")
-        # creating a callendar
-        while date_ <= today:
-            list_of_days.append(datetime.datetime.date(date_))
-            date_ += datetime.timedelta(days=1)
-        return list_of_days
-
-
-
-

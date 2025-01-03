@@ -53,35 +53,34 @@ async def office_chosen(message: Message, state: FSMContext):
     await message.answer(text=replicas["please_wait"])
     await state.set_state(Period.get_mail)
 
-# после выбора офиса, расчет и вывод
-@router_transl.message(Period.get_mail, F.text.in_(names))
-async def get_mail(message: Message, state: FSMContext):
-    period_agency.append(message.text)
-    period = MoneyForPeriod(period_agency)
-    summa = period.request_summ()
-    await message.answer(text=summa, reply_markup=buttons_main())
-    await state.clear()
-    period_agency.clear()
-
-# расчет при выборе расчета за месяц
-@router_transl.message(Month.choosing_month, F.text.in_(months))
-async def month_choosen(message: Message, state: FSMContext):
-    ''' calculation when choosing - "amount for month"'''
-    month_day: list = [message.text, "1"]
-    mont = MoneyForMonth(month_day)
-    await message.answer(text=replicas["please_wait"])
-    summa: str = mont.request_summ()
-    # debug_logger.debug(f'result of request to email is {summa}')
-    # f'{les[0]} - {les[1]}:     <b><i>{les[2]}</i></b>'
-    await message.answer(text=summa, reply_markup=buttons_main(), parse_mode=ParseMode.HTML)
-    await state.clear()
-
 # выбор офиса для версии 2.
 @router_transl.message(Period.choosing_period)
 async def period_chosen(message: Message, state: FSMContext):
     period_agency.append(message.text)
     await message.answer(text='Пожалуйста введите офис', reply_markup=buttons_office())
     await state.set_state(Period.choosing_office)
+
+# после выбора офиса, расчет и вывод
+@router_transl.message(Period.get_mail, F.text.in_(names))
+async def get_mail(message: Message, state: FSMContext):
+    period_agency.append(message.text)
+    period = MoneyForPeriod(period_agency)
+    await message.answer(text=replicas["please_wait"])
+    summa: str = period.request_summ()
+    await message.answer(text=summa, reply_markup=buttons_main(), parse_mode=ParseMode.HTML)
+    await state.clear()
+    period_agency.clear()
+
+# расчет при выборе расчета за месяц
+@router_transl.message(Month.choosing_month, F.text.in_(months))
+async def month_choosen(message: Message, state: FSMContext):
+    """ calculation when choosing - 'amount for month'"""
+    month_day: list = [message.text, "1"]
+    mont = MoneyForMonth(month_day)
+    await message.answer(text=replicas["please_wait"])
+    summa: str = mont.request_summ()
+    await message.answer(text=summa, reply_markup=buttons_main(), parse_mode=ParseMode.HTML)
+    await state.clear()
 
 # все остальные случаи
 @router_transl.message(F.text)
