@@ -3,13 +3,12 @@ import datetime
 import os
 import logging.config
 import re
-
 from imap_tools import AND, MailBox
 
 from config import mail_and_name, name_and_mail, year
-from dotenv import load_dotenv
-
-load_dotenv()
+# from dotenv import load_dotenv
+#
+# load_dotenv()
 
 IMAP: str = os.environ['SERVER_IMAP']
 MAIL_USERNAME: str = os.environ['USERNAME_MAIL']
@@ -24,21 +23,18 @@ class MoneyForMonth:
         self.data = data
         self.message_list = []
 
-    def create_list_of_data(self) -> list:
-        month: int = int(self.data[0])
-        start_day: int = int(self.data[1])
-        day_finish: int = calendar.monthrange(year, month)[1] + 1
-        return [datetime.date(year, month, day) for day in range(start_day, day_finish)]
-
-
     def request_email(self) -> list:
+        month: int = int(self.data[0])
+        day_start: int = int(self.data[1])
+        date_start = datetime.datetime(year, month, day_start)
+        day_finish: int = calendar.monthrange(year, month)[1]
+        date_finish = datetime.datetime(year, month, day_finish)
         with MailBox(IMAP).login(MAIL_USERNAME, MAIL_PASSWORD) as mailbox:
             mailbox.folder.set('Отправленные')
-            for day in self.create_list_of_data():
-                for msg in mailbox.fetch(AND(date=day, text="гривен"), charset='utf-8'):
-                    self.message_list.append([msg.uid, str(msg.date), msg.to, msg.text])
+            criteria = AND(sent_date_gte=date_start.date(), sent_date_lt=date_finish.date(), text="гривен")
+            for msg in mailbox.fetch(criteria, charset = 'utf-8'):
+                self.message_list.append([msg.uid, str(msg.date), msg.to, msg.text])
         return self.message_list
-
 
     @staticmethod
     def create_list_summ(temp_list: list) -> list:
@@ -80,11 +76,17 @@ class MoneyForMonth:
 class MoneyForPeriod(MoneyForMonth):
 
     def request_email(self) -> list:
-        mail: tuple = name_and_mail.get(self.data[2])
+        mails = name_and_mail.get(self.data[2])
+        month: int = int(self.data[0])
+        day_start: int = int(self.data[1])
+        date_start = datetime.datetime(year, month, day_start)
+        day_finish: int = calendar.monthrange(year, month)[1]
+        date_finish = datetime.datetime(year, month, day_finish)
         with MailBox(IMAP).login(MAIL_USERNAME, MAIL_PASSWORD) as mailbox:
             mailbox.folder.set('Отправленные')
-            for _ in mail:
-                for day in self.create_list_of_data():
-                    for msg in mailbox.fetch(AND(date=day, text="гривен", to=_), charset='utf-8'):
-                        self.message_list.append([msg.uid, str(msg.date), msg.to, msg.text])
+            for _ in mails:
+                criteria = AND(sent_date_gte=date_start.date(), sent_date_lt=date_finish.date(), text="гривен",
+                to=_)
+                for msg in mailbox.fetch(criteria, charset = 'utf-8'):
+                    self.message_list.append([msg.uid, str(msg.date), msg.to, msg.text])
         return self.message_list
